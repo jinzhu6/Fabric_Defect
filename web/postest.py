@@ -4,7 +4,9 @@ import PIL.Image as Image
 import base64
 from io import BytesIO
 from webapp.imgTool import readIMGInDir
+import paddlehub
 
+a = paddlehub.module("1")
 for i in readIMGInDir("./webapp/test"):
     img = Image.open(i)
     output_buffer = BytesIO()
@@ -15,4 +17,3 @@ for i in readIMGInDir("./webapp/test"):
     res = requests.post('http://127.0.0.1:8000/api/', data={'image': base64_str, 'time': times})
     res.close()
     print(res.text)
-
