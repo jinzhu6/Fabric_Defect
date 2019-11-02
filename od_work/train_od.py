@@ -5,13 +5,13 @@
 
 import yaml
 import paddle.fluid as fluid
-
+from tools import imgTool
 from build_net import build_net
 
 # 读取配置文件
 with open("./config/train_full.yaml", "r", encoding="utf-8") as f:
     conf = f.read()
-    conf = yaml.load(conf, Loader=yaml.FullLoader)
+    conf = dict(yaml.load(conf, Loader=yaml.FullLoader))
 
 
 # 数据读取
@@ -23,8 +23,13 @@ def reader(mode: str = "Train"):
     """
 
     def yield_one_data():
-        pass
-
+        dir_path = conf["data_path"] + "/"
+        if mode == "Train":
+            dir_path += "train"
+        else:
+            dir_path += "eval"
+        img_name, img_path = imgTool.read_img_in_dir(dir_path, ext="json", name_none_ext=True)
+        # 预处理 待写
     return yield_one_data
 
 

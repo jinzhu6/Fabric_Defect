@@ -1,7 +1,3 @@
-'''
-ImgTool
-处理图片工具集合
-'''
 import os
 import sys
 import random
@@ -11,59 +7,6 @@ from PIL import Image, ImageFont, ImageDraw, ImageEnhance
 import numpy as np
 
 fontP = "./font/1.ttf"
-
-
-def readIMGInDir(path, type=None, onle_name=False):
-    """
-    读取文件夹下所有文件的文件名和路径
-    :param path: 路径
-    :param type:指定文件类型，如果没有指定则视为jpg类型
-    :return: nameL:文件夹内所有路径+文件名 './trainData/ori1/20181024/000030_1_0.jpg' or '000030_1_0.jpg'
-    """
-    if type is None:
-        type = '.jpg'
-    else:
-        type = "." + type
-    nameL = []  # 保存文件名
-    for root, dirs, files in os.walk(path):
-        for file in files:
-            if os.path.splitext(file)[1] == type:
-                if onle_name is True:
-                    nameL.append(str(file).replace("\\", "/"))
-                else:
-                    nameL.append(str(os.path.join(root, file)).replace("\\", "/"))
-    return nameL
-    # 其中os.path.splitext()函数将路径拆分为文件名+扩展名
-
-
-# print(readIMGInDir("./trainData/"))
-
-def saveIMGFilePathL(dirPath, savePath, oriIMGType="jpg", for_test=False):
-    """
-    创建图像列表-需要为LabelME创建的文件夹格式
-    :param dirPath: LabelME生成文件夹格式
-    :param savePath:图像列表的不以/为结尾保存位置
-    :param for_test=False：是否用于测试 测试则不生成对应蒙版图片列表
-    :return:
-    """
-    if for_test is not False:
-        with open(savePath + "/test.list", "w") as f:
-            pathL = readIMGInDir(dirPath + "/JPEGImages", onle_name=True)
-            for file in pathL:
-                f.writelines("JPEGImages/" + file + "\n")
-            print("写入量", len(pathL))
-    else:
-        # oriPathL = readIMGInDir(dirPath + "/JPEGImages", onle_name=True)
-        maskPathL = readIMGInDir(dirPath + "/SegmentationClassPNG", type="png", onle_name=True)
-        with open(savePath + "/train.list", "w") as f:
-            count = 0
-            for mask in maskPathL:
-                f.writelines("JPEGImages/" + mask[:-3] + oriIMGType + " " + "SegmentationClassPNG/" + mask + "\n")
-                count += 1
-            print("写入量", count)
-
-
-# saveIMGFilePathL("./trainData/20181024/out", "./trainData/20181024/out", for_test=True)
 
 
 def read_img_in_dir(path, dir_deep=0, ext='jpg', name_none_ext=False):
@@ -95,42 +38,55 @@ class ImgPretreatment:
     """
 
     图像预处理类
-    传入图片文件夹路径后，对index下的图片进行预处理
-    批量处理代码：
+    传入图片文件夹路径后，对目录下带有Json的
+    批量处理代码:
         # 创建工具对象并传入相关参数
-        tool_img_pretreatment=ImgPretreatment(...)
+        imgPretreatmentTool=ImgPretreatment(args)
         # 处理所有图像
-        for index in range(tool_img_pretreatment.__len__())
+        for index in range(imgPretreatmentTool.__len__())
             # 初始化当前index图像
-            tool_img_pretreatment.img_init(index)
+            imgPretreatmentTool.img_init(index)
             # 对图像进行操作
-            tool_img_pretreatment.img_cut_color()
-            tool_img_pretreatment.img_xxx()
-            tool_img_pretreatment.img_xxx()
+            imgPretreatmentTool.img_cut_color()
+            imgPretreatmentTool.img_xxx()
+            imgPretreatmentTool.img_xxx()
             ...
-            # 获取最终处理好的图像(Pillow对象)
-            final_img_pil_obj = tool_img_pretreatment.req_img()
+            # 获取最终处理好的数据(Pillow对象)
+            final_img_pil_obj,final_loc_box = imgPretreatmentTool.req_result()
 
     Tips:
     1、第一次进行图像减颜色均值操作时过程较长，并非卡顿。
     2、如果要统一数据集尺寸，则最好放在所有对图像的操作之前，初始化图像操作之后。这样更有利运行速度。
+    3、若进行颜色裁剪，则不可以进行保存图片操作，请在该操作前进行保存。
     参数保存:
     在获取颜色均值后会保一个参数文件'img_pretreatment.txt'记录参数。
-    参数读取仅在for_test=True或ignore_log=False时生效，
+    参数读取仅在for_test=True或ignore_log=False时生效。
+
+    设计思想:
+    ->给定文件夹以及参数进行读取。
+    ->构建图片列表。
+    ->给出索引值，初始化对应图片，若包含位置信息则在此传入。
+    ->对图片进行操作。
+    ->获取当前处理后的图片。
+
+    单张变多张操作: 初始化图片后，内部会以一个列表存储该图片，若涉及单张变多张的操作则会把结果都保存在该列表中。
+    尺寸变换操作: 每次处理都会有一个全局变量来记录变换后的尺寸
+    颜色裁剪操作: 仅计算文件夹内图片的颜色均值，无论怎样调整操作顺序，该操作总是最后一个进行，而且较为独立。
     """
 
     def __init__(self, all_img_path, mean_color_num=500, dir_deep=0, img_type="jpg", read_img_type='L',
                  ignore_log=False, for_test=False, debug=True):
         """
         :param all_img_path: 图像文件所在文件夹路径
-        :param mean_color_num:颜色均值采样数
-        :param dir_deep:检索文件夹的深度
+        :param mean_color_num: 颜色均值采样数
+        :param dir_deep: 检索文件夹的深度
         :param img_type: 图像文件类型，默认jpg格式
-        :param read_img_type:图像读取通道类型 默认为灰度
-        :param ignore_log:是否忽略之前参数文件
-        :param for_test:是否用于测试，如果用于测试则自动读取颜色裁剪信息
-        :param debug:设置为False后将进入哑巴模式，什么信息都不会打印在屏幕上，报错信息除外
+        :param read_img_type: 图像读取通道类型 默认为灰度
+        :param ignore_log: 是否忽略之前参数文件
+        :param for_test: 是否用于测试，如果用于测试则自动读取颜色裁剪信息
+        :param debug: 设置为False后将进入哑巴模式，什么信息都不会打印在屏幕上，报错信息除外
         """
+
         if debug:
             print("----------ImgPretreatment Start!----------")
 
@@ -147,17 +103,17 @@ class ImgPretreatment:
         # Flag 变量
         self.allow_req_img = False  # 图像初始化控制
         self.allow_save_flag = True  # 允许保存，如果进行去均值操作则不允许保存
+        self._color_mean_flag = False  # 是否需要计算颜色均值
         self.__need_color_cut_flag = False  # 是否需要颜色去均值
         self.__first_print_flag = True  # 是否第一次输出控制变量
-
-        self.color_mean_flag = False
+        self.__contain_location = False  # 是否包含位置标签信息
         if ignore_log is False or for_test is True:
             try:
                 with open("./img_pretreatment.txt", "r") as f:
                     info = f.read().split("-")
                     check_info = str(self.read_img_type) + str(self.len_img) + str(self.mean_color_num)
                     if info[0] == check_info or for_test:
-                        self.color_mean_flag = True
+                        self._color_mean_flag = True
                         self.allow_save_flag = False
                         self.__color_mean = float(info[1][1:-1])
                         if debug:
@@ -165,21 +121,27 @@ class ImgPretreatment:
             except:
                 assert not for_test, "Load Log Finally,Place check img_pretreatment.txt!"
         # 当前进程变量
-        self.now_index = 1
-        self.now_img_name = self.img_files_name[1]
-        self.now_img_file_path = self.img_files_path[self.now_index]
+        self.now_index = -1
+        self.now_img_name = None
+        self.now_img_file_path = None
         self.now_img_obj_list = []
-        self.now_img_obj_list.append(Image.open(self.img_files_path[0]).convert(self.read_img_type))
+        self.now_label_locs_list = []
         if debug:
             print("Data read successfully number:", self.len_img)
 
-    def img_init(self, index):
+    def img_init(self, index, label_location_info=None, pil_obj=None):
         """
         图像初始化
         :param index: 需要初始化图像的索引
+        :param label_location_info: 图像的位置信息 示例[[x_up, y_up, x_down, y_down],...]
+        :param pil_obj: 若不想从文件中读取，请从此传入PIL对象
         """
         self.allow_save_flag = True
-
+        self.__contain_location = False
+        if pil_obj is not None:
+            self._color_mean_flag = False
+            self.now_img_obj_list = []
+            self.now_img_obj_list.append(pil_obj)
         if index is not self.now_index or len(self.now_img_obj_list) != 1:
             try:
                 self.now_img_obj_list = []
@@ -188,6 +150,10 @@ class ImgPretreatment:
                 self.now_img_name = self.img_files_name[self.now_index]
             except:
                 print(traceback.format_exc())
+        if label_location_info is not None:
+            self.__contain_location = True
+            self.now_label_locs_list = []
+            self.now_label_locs_list.append(label_location_info)
 
     def __color_mean_start(self):
         """
@@ -213,7 +179,7 @@ class ImgPretreatment:
             success_num += 1
             if id_ == mean_color_num or id_ == self.len_img - 1:
                 self.__color_mean = np.around((sum_img_numpy / success_num), decimals=3).tolist()
-                self.color_mean_flag = True
+                self._color_mean_flag = True
 
                 with open("./img_pretreatment.txt", "w") as f:
                     f.write(
@@ -235,11 +201,12 @@ class ImgPretreatment:
 
     def img_only_one_shape(self, expect_w, expect_h):
         """
-        传入图片将修正为数据集统一的尺寸
+        传入图片将中心修正为数据集统一的尺寸
         注意！期望大小必须小于原始图片大小
         """
-        temp_list = []
-        for now_img_obj in self.now_img_obj_list:
+        temp_img_list = []
+        temp_locs_list = []
+        for index, now_img_obj in enumerate(self.now_img_obj_list):
             w, h = now_img_obj.size
             assert (w - expect_w >= 0 or h - expect_h >= 0), (
                 "Expected values are larger than the original image size. Please adjust the expected values to be "
@@ -247,9 +214,12 @@ class ImgPretreatment:
             box = ((w - expect_w) // 2, (h - expect_h) // 2,
                    (w - expect_w) // 2 + expect_w, (h - expect_h) // 2 + expect_h)
             img = now_img_obj.crop(box)
-            temp_list.append(img)
-        self.now_img_obj_list = temp_list
-        self.shape = temp_list[0].size
+            temp_img_list.append(img)
+            if self.__contain_location:
+                self.__repair_loc(index, box, temp_locs_list)
+        self.now_img_obj_list = temp_img_list
+        self.now_label_locs_list = temp_locs_list
+        self.shape = temp_img_list[0].size
 
     def img_resize(self, expect_w, expect_h):
         """
@@ -258,14 +228,18 @@ class ImgPretreatment:
         :param expect_h: 期望的高度-纵向
         """
         temp_list = []
-        for now_img_obj in self.now_img_obj_list:
+        for index, now_img_obj in enumerate(self.now_img_obj_list):
+            if self.__contain_location:
+                w, h = now_img_obj.size
+                w_, h_ = (expect_w / w, expect_h / h)
+                for loc_id, loc in enumerate(self.now_label_locs_list[index]):
+                    tmp_loc = [loc[0] * w_, loc[1] * w_, loc[2] * h_, loc[3] * w_]
+                    self.now_label_locs_list[index][loc_id] = tmp_loc
             img = now_img_obj.resize((expect_w, expect_h), Image.LANCZOS)
             temp_list.append(img)
+
         self.now_img_obj_list = temp_list
         self.shape = temp_list[0].size
-
-    def random_crop(self):
-        pass
 
     def img_rotate(self, angle_range=(0, 0), angle_step=1, angle_and_transpose=False, only_transpose=False):
         """
@@ -279,15 +253,33 @@ class ImgPretreatment:
         """
 
         def tran(ori_pil_obj, out_pil_list):
+            out_pil_list.append(ori_pil_obj)
             out_pil_list.append(ori_pil_obj.transpose(Image.FLIP_LEFT_RIGHT))
             out_pil_list.append(ori_pil_obj.transpose(Image.FLIP_TOP_BOTTOM))
 
-        temp_list = list(self.now_img_obj_list)
+        temp_list = []
         if only_transpose is True:
-            for now_img_obj in self.now_img_obj_list:
+            tmp_locs = []
+            for index, now_img_obj in enumerate(self.now_img_obj_list):
                 tran(now_img_obj, temp_list)
-            self.now_img_obj_list = temp_list
+                w, h = now_img_obj.size
+                tmp_loc1 = []
+                for loc in self.now_label_locs_list[index]:
+                    tmp_loc1.append(loc)
+                tmp_loc2 = []
+                for loc in self.now_label_locs_list[index]:
+                    tmp_loc2.append([w - loc[0], loc[1], w - loc[2], loc[3]])
+                tmp_loc3 = []
+                for loc in self.now_label_locs_list[index]:
+                    tmp_loc3.append([loc[0], h - loc[1], loc[2], h - loc[3]])
+                tmp_locs.append(tmp_loc1)
+                tmp_locs.append(tmp_loc2)
+                tmp_locs.append(tmp_loc3)
+            self.now_label_locs_list = tmp_locs
+
         else:
+            print("暂时不需要该功能")
+            """
             for now_img_obj in self.now_img_obj_list:
                 for angle in range(angle_range[0], angle_range[1], angle_step):
                     temp_list.append(now_img_obj.rotate(angle))
@@ -296,19 +288,34 @@ class ImgPretreatment:
                 for now_img_obj in temp_list:
                     tran(now_img_obj, self.now_img_obj_list)
 
-    def img_random_noise(self):
-        """
-        随机添加噪声
-        """
-        pass
+            """
+        self.now_img_obj_list = temp_list
 
-    def img_random_vague(self):
+    def img_random_crop(self, expect_w: int, expect_h: int, random_num: int = 1):
         """
-        随机模糊
+        随机裁剪
+        期望值需小于当前图片尺寸
+        :param expect_w:
+        :param expect_h:
+        :param random_num:
         """
-        pass
+        temp_img_list = []
+        temp_locs_list = []
+        for seed in range(1, random_num + 1):
+            for index, now_img in enumerate(self.now_img_obj_list):
+                w, h = now_img.size
+                seed_w = random.randint(0, (w - expect_w))
+                seed_h = random.randint(0, (h - expect_h))
+                box = (seed_w, seed_h, seed_w + expect_w, seed_h + expect_h)
+                temp_img_list.append(now_img.crop(box))
+                if self.__contain_location:
+                    if self.__contain_location:
+                        self.__repair_loc(index, box, temp_locs_list)
+        self.now_img_obj_list = temp_img_list
+        self.now_label_locs_list = temp_locs_list
+        self.shape = temp_img_list[0].size
 
-    def img_random_contrast(self, random_num=1, lower=0.5, upper=1.5):
+    def img_random_contrast(self, random_num: int = 1, lower=0.5, upper=1.5):
         """
         随机对比度
         :param random_num: 随机次数，尽可能在3以内，建议为1，均匀随机
@@ -317,16 +324,20 @@ class ImgPretreatment:
         """
 
         temp_list = list(self.now_img_obj_list)
+        temp_los = list(self.now_label_locs_list) if self.__contain_location else None
         for seed in range(1, random_num + 1):
             factor = random.uniform(lower + ((upper - lower) * seed - 1 / random_num),
                                     lower + ((upper - lower) * seed / random_num))
-            for now_img_obj in self.now_img_obj_list:
+            for index, now_img_obj in enumerate(self.now_img_obj_list):
                 img = ImageEnhance.Sharpness(now_img_obj)
                 img = img.enhance(factor)
                 temp_list.append(img)
+                if self.__contain_location:
+                    temp_los.append(temp_los[index])
         self.now_img_obj_list = temp_list
+        self.now_label_locs_list = temp_los
 
-    def img_random_brightness(self, random_num=1, lower=0.5, upper=1.5):
+    def img_random_brightness(self, random_num: int = 1, lower=0.5, upper=1.5):
         """
         随机亮度
         :param random_num: 随机次数，尽可能在3以内，建议为1，均匀随机
@@ -335,16 +346,20 @@ class ImgPretreatment:
         """
 
         temp_list = list(self.now_img_obj_list)
+        temp_los = list(self.now_label_locs_list) if self.__contain_location else None
         for seed in range(1, random_num + 1):
             factor = random.uniform(lower + ((upper - lower) * seed - 1 / random_num),
                                     lower + ((upper - lower) * seed / random_num))
-            for now_img_obj in self.now_img_obj_list:
+            for index, now_img_obj in enumerate(self.now_img_obj_list):
                 img = ImageEnhance.Brightness(now_img_obj)
                 img = img.enhance(factor)
                 temp_list.append(img)
+                if self.__contain_location:
+                    temp_los.append(temp_los[index])
         self.now_img_obj_list = temp_list
+        self.now_label_locs_list = temp_los
 
-    def img_random_saturation(self, random_num=1, lower=0.5, upper=1.5):
+    def img_random_saturation(self, random_num: int = 1, lower=0.5, upper=1.5):
         """
         随机饱和度
         :param random_num: 随机次数，尽可能在3以内，建议为1，均匀随机
@@ -352,20 +367,24 @@ class ImgPretreatment:
         :param upper:最高可能的亮度
         """
         temp_list = list(self.now_img_obj_list)
+        temp_los = list(self.now_label_locs_list) if self.__contain_location else None
         for seed in range(1, random_num + 1):
             factor = random.uniform(lower + ((upper - lower) * seed - 1 / random_num),
                                     lower + ((upper - lower) * seed / random_num))
-            for now_img_obj in self.now_img_obj_list:
+            for index, now_img_obj in enumerate(self.now_img_obj_list):
                 img = ImageEnhance.Color(now_img_obj)
                 img = img.enhance(factor)
                 temp_list.append(img)
+                if self.__contain_location:
+                    temp_los.append(temp_los[index])
         self.now_img_obj_list = temp_list
+        self.now_label_locs_list = temp_los
 
-    def req_img(self, save_path=None):
+    def req_result(self, save_path=None):
         """
         获取当前处理进程中图片
         :param save_path:如果保存图片，则需要提供保存路径
-        :return:PIL_Obj or PIL_Obj_List
+        :return: PIL_Obj_List or [PIL_Obj_List,location_info_list]
         """
         # 特殊操作区域
         if self.__need_color_cut_flag is True:
@@ -400,13 +419,31 @@ class ImgPretreatment:
                 self.now_img_obj_list[0].save(
                     os.path.join(save_path, self.img_files_name[self.now_index] + ".jpg").replace("\\", "/"))
         # 数据返回区域
-        return self.now_img_obj_list
+        if self.__contain_location:
+            return [self.now_img_obj_list, self.now_label_locs_list]
+        else:
+            return self.now_img_obj_list
 
     def _req_color_mean(self):
-        if self.color_mean_flag:
+        if self._color_mean_flag:
             return self.__color_mean
         else:
             return self.__color_mean_start()
+
+    def __repair_loc(self, index, box, temp_locs_list):
+        """
+        修正标签坐标，用于裁剪后坐标偏移修正
+        :param index: 当前处理列表的索引值
+        :param box: 裁剪框
+        :param temp_locs_list: 存储修正后坐标的列表
+        """
+        if self.__contain_location:
+            temp_loc_list = []
+            for loc_id, loc in enumerate(self.now_label_locs_list[index]):
+                final_loc = [loc[0] - box[0], loc[1] - box[1], loc[2] - box[0], loc[3] - box[1]]
+                if min(final_loc) >= 0:
+                    temp_loc_list.append(final_loc)
+            temp_locs_list.append(temp_loc_list)
 
     def __progress_print(self):
         """
@@ -428,132 +465,17 @@ class ImgPretreatment:
         return self.len_img
 
 
-# # 测试代码
-# all_img_tool = ImgPretreatment(all_img_path="data/test", debug=True, ignore_log=True)
-# for i in range(all_img_tool.len_img):
-#     all_img_tool.img_init(i)
-#     # all_img_tool.img_rotate(only_transpose=True)
-#     # all_img_tool.img_random_brightness()
-#     # all_img_tool.img_random_contrast()
-#     # all_img_tool.img_cut_color()
-#     # all_img_tool.img_resize(612, 300)
-#     # all_img_tool.img_random_saturation()
-#     all_img_tool.img_only_one_shape(10, 300)
-#
-#     all_img_tool.req_img(save_path="./data/save1")
-#
-#     # all_img_tool.req_img()
-
-
-def cut_box_for_infer(img, quick=False):
-    """
-    GT-CutR模型 预测图片预处理工具
-    :param img: PIL_Obj
-    :param quick = False:极速模式 关闭
-    :return: imgL 剪裁后图片列表
-    """
-    # 参数表
-    boxsixe = [240, 240]  # 2倍的测试框
-    input_img = (1200, 2448)  # 输入图片
-    check_input = (2448, 1200)
-    assert (check_input == img.size), "输入图片" + str(img.size) + "不符合(2448,1200)尺寸！"
-    vbox_input_img = [960, 2160]  # 虚拟图片大小
-    ext = 0.  # ext: 扩充偏移量[0-0.5]
-    extup = 0.  # extup:上下偏移量[0.3-1]
-
-    extupL = 144 * (1 - extup)
-    img = img.crop((extupL, 120, vbox_input_img[1] + extupL, vbox_input_img[0] + 120))  # W H
-    p = 1
-    input_img = img
-    # 步长
-    long = boxsixe[0] // 2
-    if quick is True:
-        p = 2
-        ext *= 0.5
-
-    """
-    选择框处理工具
-    :param input_img: PIL对象
-    :return: 小块图像列表
-    """
-    mini_imgL = []
-    box_W = (2 * vbox_input_img[1]) // boxsixe[0]
-    box_H = (2 * vbox_input_img[0]) // boxsixe[0]
-    # print(box_W, box_H) 18 8
-    for list_W in range(box_W):
-        for list_H in range(0, box_H, p):
-            if list_W % 2 == 1:
-                if list_W == box_W - 1:
-                    continue
-                box = (list_W * long + ext * boxsixe[0], list_H * long, (list_W + 1) * long + ext * boxsixe[0],
-                       (list_H + 1) * long)
-
-            else:
-                box = (list_W * long, list_H * long, (list_W + 1) * long, (list_H + 1) * long)
-            mini_img = input_img.crop(box)
-            mini_imgL.append(mini_img)
-    return mini_imgL
-
-
-"""
-imgF="./testData/075353_1_0.jpg"
-img=Image.open(imgF)
-cut_box_for_infer(img)
-"""
-
-
-def drawIMG(dirP, imgname, quickMode=True):
-    """
-    图片绘制工具
-    :param imgP:  图片文件路径
-    :param imgname:  图片文件名称
-    :return: PIL对象
-    """
-    imgP = dirP + "/" + imgname
-    labelP = dirP + "/info/" + imgname + ".txt"
-    imgP = Image.open(imgP)
-    vbox_input_img = [960, 2160]  # 虚拟图片大小
-    imgP = imgP.crop((0, 120, vbox_input_img[1], vbox_input_img[0] + 120))
-    imgP = imgP.convert('RGB')
-    draw = ImageDraw.Draw(imgP)
-    with open(labelP, "r") as f:
-        info = f.read().split("\n")[:-1]
-        for i in info:
-            L = i.split("-")
-            W = int(L[0]) - 1
-            H = int(L[1]) - 1
-            strL = L[2] + "/" + L[3]
-            font = ImageFont.truetype(fontP, 15, encoding="utf-8")
-            if quickMode is True:
-                draw.text((60 + 120 * W, 120 + 240 * H), strL, fill="red", font=font)
-            else:
-                draw.text((60 + 120 * W, 120 + 120 * H), strL, fill="red", font=font)
-    return imgP
-
-
-# a = drawIMG("./test/", "005746_2_2.jpg")
-# a.show()
-
-def cut_edge(pil_l_obj, size=(600, 1200), step_size=300):
-    """
-    裁剪布匹图片，并剪去边缘
-    :param pil_l_obj: pil灰度对象
-    :param size: block大小
-    :param step_size: 步长
-    :return: pil灰度对象
-    """
-    w, h = pil_l_obj.size
-    block_num = (w // step_size - 1) * (size[0] // step_size)
-    pil_list = []
-    box_list = []
-    for i in range(block_num):
-        box = (i * step_size, 0, size[0] + i * step_size, 1200)
-        mini_img = pil_l_obj.crop(box)
-        colors = mini_img.getcolors()
-        if colors[0][1] > 60:
-            pil_list.append(mini_img)
-            box_list.append(box)
-    return pil_list, box_list
-
-# img = Image.open("./testData/160342_3_5Y.jpg").convert('L')
-# cut_edge(img)
+# 测试代码
+allImgTool = ImgPretreatment(all_img_path="./", debug=True, ignore_log=True)
+for i in range(allImgTool.len_img):
+    allImgTool.img_init(i, [[5, 10, 15, 20]])
+    allImgTool.img_rotate(only_transpose=True)
+    allImgTool.img_random_brightness()
+    allImgTool.img_random_contrast()
+    allImgTool.img_cut_color()
+    allImgTool.img_resize(450, 220)
+    allImgTool.img_random_saturation()
+    allImgTool.img_only_one_shape(448, 218)
+    allImgTool.img_random_crop(440, 210, 2)
+    allImgTool.req_result()
+    pass

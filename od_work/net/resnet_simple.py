@@ -168,11 +168,11 @@ class SimpleResNet:
                                                  act='relu',
                                                  same_padding=True)
                     classify_layer2 = fluid.layers.fc(input=classify_layer1,
-                                                      size=(self.classify_level + 5) * self.classify_num,
+                                                      size=self.classify_level * self.classify_num,
                                                       name="classify_layer_fc",
                                                       act="relu")
                     classify_layer3 = fluid.layers.fc(input=classify_layer2,
-                                                      size=self.classify_num,
+                                                      size=2,
                                                       name="classify_layer_out",
                                                       act="softmax")
                     self.out_list_classify = [classify_layer1, classify_layer2, classify_layer3]
