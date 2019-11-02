@@ -69,7 +69,4 @@ def build_net(ipt,
         exit(1)
 
 
-# Debug
-data = fluid.layers.data(name="debug", shape=[3, 1080, 608])
-net_obj = SimpleResNet(data)
-print("Debug", net_obj.out_list_detection[0].shape)
+
