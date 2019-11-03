@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="Encoding">
-    <file url="file://$PROJECT_DIR$/labelme/1/003932_2_1Y.json" charset="GBK" />
-    <file url="file://$PROJECT_DIR$/train/log.txt" charset="GBK" />
+    <file url="file://$PROJECT_DIR$/od_work/tools/000030_1_0.json" charset="GBK" />
   </component>
 </project>

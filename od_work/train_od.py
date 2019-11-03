@@ -5,7 +5,10 @@
 
 import yaml
 import paddle.fluid as fluid
-from tools import imgTool
+import tools.osTool as osTool
+
+from tools import imgTool as imgTool
+from tools import labelTool as labelTool
 from build_net import build_net
 
 # 读取配置文件
@@ -13,8 +16,15 @@ with open("./config/train_full.yaml", "r", encoding="utf-8") as f:
     conf = f.read()
     conf = dict(yaml.load(conf, Loader=yaml.FullLoader))
 
+dir_path = conf["data_path"] + "/"
+train_dir_path = dir_path + "train"
+eval_dir_path = dir_path + "eval"
 
 # 数据读取
+train_label_dict = labelTool.read_label(train_dir_path)
+eval_label_dict = labelTool.read_label(eval_dir_path)
+
+
 def reader(mode: str = "Train"):
     """
     数据读取器
@@ -23,13 +33,20 @@ def reader(mode: str = "Train"):
     """
 
     def yield_one_data():
-        dir_path = conf["data_path"] + "/"
         if mode == "Train":
-            dir_path += "train"
+            path = train_dir_path
+            label_dict = train_label_dict
+            for_test = False
         else:
-            dir_path += "eval"
-        img_name, img_path = imgTool.read_img_in_dir(dir_path, ext="json", name_none_ext=True)
-        # 预处理 待写
+            path = eval_dir_path
+            label_dict = eval_label_dict
+            for_test = True
+        img_pretreatment_tool = imgTool.ImgPretreatment(path, for_test=for_test)
+        for index in range(img_pretreatment_tool.__len__()):
+            now_img_name = img_pretreatment_tool.img_files_name[index]
+            img_pretreatment_tool.img_init(index, label_location_info=label_dict[now_img_name])
+
+
     return yield_one_data
 
 

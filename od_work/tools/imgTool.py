@@ -1,63 +1,80 @@
+# Author:  Acer Zhang
+# Datetime:2019/10/26
+# Copyright belongs to the author.
+# Please indicate the source for reprinting.
+
 import os
 import sys
 import random
 import traceback
 
-from PIL import Image, ImageFont, ImageDraw, ImageEnhance
+from PIL import Image, ImageEnhance
 import numpy as np
 
+from tools.osTool import read_ext_in_dir
+
 fontP = "./font/1.ttf"
-
-
-def read_img_in_dir(path, dir_deep=0, ext='jpg', name_none_ext=False):
-    """
-    读取文件夹下所有文件的文件名和路径
-    :param path: 路径
-    :param dir_deep:文件夹检索深度，默认为0
-    :param ext:指定文件类型，如果没有指定则视为jpg类型
-    :param name_none_ext:如果为True则返回的文件名列表中不含有扩展名
-    :return: nameL:文件夹内所有路径+文件名 './trainData/ori1/20181024/000030_1_0.jpg' , '000030_1_0.jpg' or '000030_1_0'
-    """
-    ext = "." + ext
-    name_list = []  # 保存文件名
-    name_path = []
-    for id_, (root, dirs, files) in enumerate(os.walk(path)):
-        for file in files:
-            if os.path.splitext(file)[1] == ext:
-                if name_none_ext is True:
-                    name_list.append(os.path.splitext(file)[0])
-                else:
-                    name_list.append(file)
-                name_path.append(str(os.path.join(root, file)).replace("\\", "/"))
-        if id_ == dir_deep:
-            break
-    return name_list, name_path
 
 
 class ImgPretreatment:
     """
 
     图像预处理类
-    传入图片文件夹路径后，对目录下带有Json的
-    批量处理代码:
+
+    批量处理代码1 分类任务:
         # 创建工具对象并传入相关参数
-        imgPretreatmentTool=ImgPretreatment(args)
+        img_pretreatment_tool=ImgPretreatment(args)
         # 处理所有图像
-        for index in range(imgPretreatmentTool.__len__())
+        for index in range(img_pretreatment_tool.__len__())
+
             # 初始化当前index图像
-            imgPretreatmentTool.img_init(index)
+            img_pretreatment_tool.img_init(index)
             # 对图像进行操作
-            imgPretreatmentTool.img_cut_color()
-            imgPretreatmentTool.img_xxx()
-            imgPretreatmentTool.img_xxx()
+            img_pretreatment_tool.img_cut_color()
+            img_pretreatment_tool.img_xxx()
+            img_pretreatment_tool.img_xxx()
             ...
             # 获取最终处理好的数据(Pillow对象)
-            final_img_pil_obj,final_loc_box = imgPretreatmentTool.req_result()
+            final_img_pil_obj,final_loc_box = img_pretreatment_tool.req_result()
+    批量处理代码2 目标检测任务:
+        # 创建工具对象并传入相关参数
+        img_pretreatment_tool=ImgPretreatment(args)
+        # 处理所有图像
+        for index in range(img_pretreatment_tool.__len__())
+            # 可以获取当前初始化的文件名 防止与将要操作的图片不一致
+            now_img_name = self.img_files_name[index]
+            loc = xxx
+            # 初始化当前index图像
+            img_pretreatment_tool.img_init(index，loc)
+            # 对图像进行操作
+            img_pretreatment_tool.img_cut_color()
+            img_pretreatment_tool.img_xxx()
+            img_pretreatment_tool.img_xxx()
+            ...
+            # 获取最终处理好的数据(Pillow对象)
+            final_img_pil_obj,final_loc_box = img_pretreatment_tool.req_result()
 
+    批量处理代码3 从内存读取:
+        # 只需要在初始化图片时传入PIL对象即可 但部分功能可能无法使用(颜色裁剪，若没有之前保留的均值参数则无法计算颜色均值)
+        # 创建工具对象并传入相关参数
+        img_pretreatment_tool=ImgPretreatment(args)
+        # 处理所有图像
+        for index in range(img_pretreatment_tool.__len__())
+            # 初始化当前index图像
+            img_pretreatment_tool.img_init(index，pil_obj)
+            # 对图像进行操作
+            img_pretreatment_tool.img_cut_color()
+            img_pretreatment_tool.img_xxx()
+            img_pretreatment_tool.img_xxx()
+            ...
+            # 获取最终处理好的数据(Pillow对象)
+            final_img_pil_obj,final_loc_box = img_pretreatment_tool.req_result()
     Tips:
     1、第一次进行图像减颜色均值操作时过程较长，并非卡顿。
     2、如果要统一数据集尺寸，则最好放在所有对图像的操作之前，初始化图像操作之后。这样更有利运行速度。
     3、若进行颜色裁剪，则不可以进行保存图片操作，请在该操作前进行保存。
+    4、在传入标签位置信息时不用担心与当前所初始化的图片是否对应，因为在初始化该类时就已经生成了图片路径索引表
+        只需要获取 self.img_files_name 就可以知道当前index对应的图片名。
     参数保存:
     在获取颜色均值后会保一个参数文件'img_pretreatment.txt'记录参数。
     参数读取仅在for_test=True或ignore_log=False时生效。
@@ -90,7 +107,7 @@ class ImgPretreatment:
         if debug:
             print("----------ImgPretreatment Start!----------")
 
-        self.img_files_name, self.img_files_path = read_img_in_dir(all_img_path, dir_deep, img_type, name_none_ext=True)
+        self.img_files_name, self.img_files_path = read_ext_in_dir(all_img_path, dir_deep, img_type, name_none_ext=True)
 
         self.len_img = len(self.img_files_path)
         assert self.len_img != 0, "No file is in the folder."
@@ -465,17 +482,17 @@ class ImgPretreatment:
         return self.len_img
 
 
-# 测试代码
-allImgTool = ImgPretreatment(all_img_path="./", debug=True, ignore_log=True)
-for i in range(allImgTool.len_img):
-    allImgTool.img_init(i, [[5, 10, 15, 20]])
-    allImgTool.img_rotate(only_transpose=True)
-    allImgTool.img_random_brightness()
-    allImgTool.img_random_contrast()
-    allImgTool.img_cut_color()
-    allImgTool.img_resize(450, 220)
-    allImgTool.img_random_saturation()
-    allImgTool.img_only_one_shape(448, 218)
-    allImgTool.img_random_crop(440, 210, 2)
-    allImgTool.req_result()
-    pass
+# # 测试代码
+# all_img_tool = ImgPretreatment(all_img_path="./", debug=True, ignore_log=True)
+# for i in range(all_img_tool.__len__()):
+#     all_img_tool.img_init(i, [[5, 10, 15, 20]])
+#     all_img_tool.img_rotate(only_transpose=True)
+#     all_img_tool.img_random_brightness()
+#     all_img_tool.img_random_contrast()
+#     all_img_tool.img_cut_color()
+#     all_img_tool.img_resize(450, 220)
+#     all_img_tool.img_random_saturation()
+#     all_img_tool.img_only_one_shape(448, 218)
+#     all_img_tool.img_random_crop(440, 210, 2)
+#     all_img_tool.req_result()
+#     pass
