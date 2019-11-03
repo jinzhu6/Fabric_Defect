@@ -59,7 +59,7 @@ class ImgPretreatment:
         # 创建工具对象并传入相关参数
         img_pretreatment_tool=ImgPretreatment(args)
         # 处理所有图像
-        for index in range(img_pretreatment_tool.__len__())
+        for index in range(len(img_pretreatment_tool))
             # 初始化当前index图像
             img_pretreatment_tool.img_init(index，pil_obj)
             # 对图像进行操作
@@ -480,7 +480,6 @@ class ImgPretreatment:
 
     def __len__(self):
         return self.len_img
-
 
 # # 测试代码
 # all_img_tool = ImgPretreatment(all_img_path="./", debug=True, ignore_log=True)

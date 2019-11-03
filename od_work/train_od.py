@@ -4,7 +4,10 @@
 # Please indicate the source for reprinting.
 
 import yaml
+import time
 import paddle.fluid as fluid
+import paddle
+import numpy as np
 import tools.osTool as osTool
 
 from tools import imgTool as imgTool
@@ -42,10 +45,16 @@ def reader(mode: str = "Train"):
             label_dict = eval_label_dict
             for_test = True
         img_pretreatment_tool = imgTool.ImgPretreatment(path, for_test=for_test)
-        for index in range(img_pretreatment_tool.__len__()):
+        for index in range(len(img_pretreatment_tool)):
             now_img_name = img_pretreatment_tool.img_files_name[index]
             img_pretreatment_tool.img_init(index, label_location_info=label_dict[now_img_name])
-
+            img_list, label_list = img_pretreatment_tool.req_result()
+            for im, label_info in zip(img_list, label_list):
+                w, h = im.size
+                im = np.array(im).transpose((2, 0, 1)).reshape(1, 1, h, w) * 0.007843
+                label = np.array(label_info[0])
+                box = np.array(label_info[1])
+                yield im, box, label
 
     return yield_one_data
 
@@ -71,15 +80,29 @@ with fluid.program_guard(eval_prog, start_prog):
 
 # 读取设置
 
+train_reader = paddle.batch(reader=paddle.reader.shuffle(reader(), 500), batch_size=conf["batch_size"])
+eval_reader = paddle.batch(reader=paddle.reader.shuffle(reader(mode="Eval"), 500), batch_size=conf["batch_size"])
+feeder = fluid.DataFeeder(place=place, feed_list=[ipt_img, ipt_box_list, ipt_label])
 
 # 训练部分
 exe.run(start_prog)
 
 for epoch in range(conf["epochs"]):
-    train_out = exe.run(program=train_prog,
-                        feed={},
-                        fetch_list=[loss])
-    eval_out = exe.run(program=train_prog,
-                       feed={},
-                       fetch_list=[cur_map, accum_map])
-map_eval.reset(exe)
+    train_out = []
+    eval_out = []
+    start_time = time.time()
+    step = 0
+    for data_id, data in enumerate(train_reader):
+        train_out = exe.run(program=train_prog,
+                            feed=feeder.feed(data),
+                            fetch_list=[loss])
+        step = data_id
+    cost_time = time.time() - start_time
+    for data_id, data in enumerate(eval_reader):
+        eval_out = exe.run(program=train_prog,
+                           feed=feeder.feed(data),
+                           fetch_list=[cur_map, accum_map])
+
+        map_eval.reset(exe)
+    print("Epoch:", epoch, "loss:", train_out[0], "cur_map:", eval_out[0], "accum_map:", eval_out[1])
+    print("one data training time is:", cost_time / (step + 1) / conf["batch_size"])

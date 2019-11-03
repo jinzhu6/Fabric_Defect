@@ -1,3 +1,4 @@
+# 训练参数
 use_cuda: true      # 是否使用GPU
 batch_size: 4       # 小批次数据量
 epochs: 100         # 最大训练循环
@@ -11,3 +12,6 @@ ipt_img_size:       # 进入网络时的尺寸
   - 300
   - 300
 e_learning_rate: 0.01         # 初始学习率
+
+# 输出参数
+print_epoch_interval: 1       # 间隔多少Epoch输出一次信息
