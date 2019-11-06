@@ -3,7 +3,7 @@
 ###                                   ###
 
 # 基础配置
-classify_num: 4     # 分类数
+classify_num: 3     # 分类数
 base_size: 300      # Reader返回的图像尺寸
 
 # 性能配置 - 目标检测
@@ -18,7 +18,7 @@ aspect_ratios:      # 候选框的宽高比， aspect_ratios 和 input 的个数
 
 offset: 0.5         # 左上角先验框中心在水平和垂直方向上的偏移
 nms_threshold: 0.45 # NMS阈值
-background_label: -1 # 背景标签，若为-1则考虑所有标签
+background_label: 0 # 背景标签，若为-1则考虑所有标签
 
 # 性能配置 - 一阶段分类任务
 deep_level: 2       # 网络深度控制

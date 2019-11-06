@@ -6,24 +6,26 @@ from net.resnet_simple import SimpleResNet
 import paddle.fluid as fluid
 import yaml
 
-# 读取配置文件
 with open("./config/net.yaml", "r", encoding="utf-8") as f:
     conf = f.read()
-    conf = dict(yaml.load(conf, Loader=yaml.FullLoader))
+
+conf = dict(yaml.load(conf, Loader=yaml.FullLoader))
 
 
 def build_net(ipt,
-              box_ipt_list=None,
+              box_list=None,
               label_list=None,
-              mode: str = "Train"):
+              mode: str = "Train1"):
     """
     构建网络
     :param ipt: 输入张量
-    :param box_ipt_list: 标记框列表
+    :param box_list: 标记框列表
     :param label_list: 标签列表
     :param mode: 运行模式 Train_1、Eval1、TandV2、Infer
     :return: Train模式返回loss 、 Eval模式返回计算后MAP对象、 Infer模式返回NMS结果
     """
+    # 读取配置文件
+
     net_obj = SimpleResNet(ipt,
                            classify_num=conf["classify_num"],
                            deep_level=conf["deep_level"],
@@ -56,7 +58,7 @@ def build_net(ipt,
         mbox_locs, mbox_confs, boxs, bvars, nms_out = get_od_out()
         loss = fluid.layers.ssd_loss(location=mbox_locs,
                                      confidence=mbox_confs,
-                                     gt_box=box_ipt_list,
+                                     gt_box=box_list,
                                      gt_label=label_list,
                                      prior_box=boxs,
                                      prior_box_var=bvars,
@@ -67,7 +69,7 @@ def build_net(ipt,
         nms_out = get_od_out()[-1]
         map_eval = fluid.metrics.DetectionMAP(nms_out,
                                               label_list,
-                                              box_ipt_list,
+                                              box_list,
                                               class_num=conf["classify_num"],
                                               overlap_threshold=conf["overlap_threshold"],
                                               ap_version=conf["ap_version"])

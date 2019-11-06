@@ -447,20 +447,20 @@ class ImgPretreatment:
         else:
             return self.__color_mean_start()
 
-    def __repair_loc(self, index, box, temp_locs_list):
+    def __repair_loc(self, index, box, locs_list):
         """
-        修正标签坐标，用于裁剪后坐标偏移修正
+        修正标签坐标，用于裁剪后坐标偏移修正。传入在原图基础上裁剪的范围框--box和当前坐标列表即可
         :param index: 当前处理列表的索引值
         :param box: 裁剪框
-        :param temp_locs_list: 存储修正后坐标的列表
+        :param locs_list: 存储修正后坐标的列表
         """
         if self.__contain_location:
             temp_loc_list = []
             for loc_id, loc in enumerate(self.now_label_locs_list[index]):
-                final_loc = [loc[0] - box[0], loc[1] - box[1], loc[2] - box[0], loc[3] - box[1]]
+                final_loc = [loc[1][0] - box[0], loc[1][1] - box[1], loc[1][2] - box[0], loc[1][3] - box[1]]
                 if min(final_loc) >= 0:
                     temp_loc_list.append(final_loc)
-            temp_locs_list.append(temp_loc_list)
+            locs_list.append(temp_loc_list)
 
     def __progress_print(self):
         """

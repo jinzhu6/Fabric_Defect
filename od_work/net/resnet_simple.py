@@ -63,6 +63,7 @@ def res_block(ipt, name: str, num_filters: int, deep_level: int = 2):
             size_cut=False,
             act='relu', )
     tmp = fluid.layers.elementwise_add(x=tmp, y=ipt, act='relu', name="res_block_add_" + name)
+
     return tmp
 
 
@@ -137,7 +138,7 @@ class SimpleResNet:
         tmp = base_layer(
             ipt=self.ipt,
             name="1",
-            filter_num=64,
+            filter_num=32,
             filter_size=3,
             size_cut=True,
             act='relu')
@@ -183,7 +184,7 @@ class SimpleResNet:
 
 # Debug
 
-data = fluid.layers.data(name="debug", shape=[3, 1080, 608])
-net_obj = SimpleResNet(data, deep_level=2, ipt_size_level=8)
-print("layer_count", net_obj.req_layer_count())
-print("detection_layer_size", net_obj.req_detection_layer_size())
+# data = fluid.layers.data(name="debug", shape=[3, 1080, 608])
+# net_obj = SimpleResNet(data, deep_level=2, ipt_size_level=8)
+# print("layer_count", net_obj.req_layer_count())
+# print("detection_layer_size", net_obj.req_detection_layer_size())

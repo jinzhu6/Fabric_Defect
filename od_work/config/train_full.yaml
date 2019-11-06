@@ -6,8 +6,8 @@ stop_iou: 0.9       # 当iou达到该值时停止训练
 data_path: "./data" # 数据存放目录 该目录下应有train和eval子目录
 save_model_path: "./model"    # 模型保存路径
 ori_img_size:       # 输入图像尺寸
-  - 300
-  - 300
+  - 1200
+  - 2448
 ipt_img_size:       # 进入网络时的尺寸
   - 300
   - 300

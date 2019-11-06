@@ -4,7 +4,6 @@
 # Please indicate the source for reprinting.
 
 import json
-import os
 from tools import osTool as osTool
 
 label_key = {"油污/浆斑-类": 1,
