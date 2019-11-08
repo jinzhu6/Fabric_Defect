@@ -113,9 +113,9 @@ with fluid.program_guard(train_prog, start_prog):
     opt = fluid.optimizer.Adam(learning_rate=conf["e_learning_rate"])
     opt.minimize(loss)
 
-# with fluid.program_guard(eval_prog, start_prog):
-#     map_eval = build_net(ipt_img, ipt_boxs, ipt_label, mode="Eval1")
-#     cur_map, accum_map = map_eval.get_map_var()
+with fluid.program_guard(eval_prog, start_prog):
+    map_eval = build_net(ipt_img, ipt_boxs, ipt_label, mode="Eval1")
+    cur_map, accum_map = map_eval.get_map_var()
 
 # 读取设置
 
@@ -138,11 +138,11 @@ for epoch in range(conf["epochs"]):
                             fetch_list=[loss])
         step = data_id
     cost_time = time.time() - start_time
-    print("one data training time is:", cost_time / (step + 1) / conf["batch_size"])
-    # for data_id, data in enumerate(eval_reader()):
-    #     eval_out = exe.run(program=eval_prog,
-    #                        feed=feeder.feed(data),
-    #                        fetch_list=[cur_map, accum_map])
-    #
-    # map_eval.reset(exe)
+    print("one data training avg time is:", cost_time / (step + 1) / conf["batch_size"])
+    for data_id, data in enumerate(eval_reader()):
+        eval_out = exe.run(program=eval_prog,
+                           feed=feeder.feed(data),
+                           fetch_list=[cur_map, accum_map])
+
+    map_eval.reset(exe)
     print("Epoch:", epoch, "loss:", train_out[0], "cur_map:", eval_out[0], "accum_map:", eval_out[1])

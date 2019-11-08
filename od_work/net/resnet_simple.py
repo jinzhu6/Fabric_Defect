@@ -12,30 +12,41 @@ def base_layer(ipt,
                filter_size: int = 3,
                act=None,
                size_cut: bool = False,
-               same_padding: bool = True):
+               same_padding: bool = True,
+               depthwise_sc: bool = True):
     """
     基础卷积+BN处理函数
     :param ipt: 输入张量数据
     :param name: 该层命名
     :param filter_num: 卷积核数量
     :param filter_size: 卷积核尺寸
+    :param groups: 卷积分组数
     :param act: 卷积层激活函数
     :param size_cut: 是否剪裁尺寸
     :param same_padding: 是否保持输入输出尺寸
+    :param depthwise_sc: 是否深度可分离卷积，若为是则忽略卷积核数量这个参数
     :return: 处理后张量
     """
 
-    stride = filter_size if size_cut else 1
+    stride = filter_size - 1 if size_cut else 1
     padding = (filter_size - 1) // 2 if same_padding else 0
-
     tmp = fluid.layers.conv2d(
         input=ipt,
-        num_filters=filter_num,
+        num_filters=ipt.shape[-3] if depthwise_sc else filter_num,
         filter_size=filter_size,
         stride=stride,
         padding=padding,
         bias_attr=False,
         name="base_conv_" + name)
+    if depthwise_sc:
+        tmp = fluid.layers.conv2d(
+            input=tmp,
+            num_filters=filter_num,
+            filter_size=1,
+            stride=1,
+            padding=0,
+            bias_attr=False,
+            name="base_conv_dpsc_" + name)
 
     tmp = fluid.layers.batch_norm(
         input=tmp,
@@ -141,7 +152,8 @@ class SimpleResNet:
             filter_num=32,
             filter_size=3,
             size_cut=True,
-            act='relu')
+            act='relu',
+            depthwise_sc=False)
 
         out_list_detection = []
         for group_num in range(self.ipt_size_level):
@@ -180,7 +192,6 @@ class SimpleResNet:
         self.out_list_detection = [out_list_detection[0],
                                    out_list_detection[(self.ipt_size_level - 2) // 4],
                                    out_list_detection[-1]]
-
 
 # Debug
 
