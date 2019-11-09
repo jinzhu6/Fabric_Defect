@@ -54,7 +54,7 @@ def build_net(ipt,
 
     if mode == "Infer":
         return get_od_out()[-1]
-    elif mode == "Train1":
+    elif mode == "TandV1":
         mbox_locs, mbox_confs, boxs, bvars, nms_out = get_od_out()
         loss = fluid.layers.ssd_loss(location=mbox_locs,
                                      confidence=mbox_confs,
@@ -64,9 +64,6 @@ def build_net(ipt,
                                      prior_box_var=bvars,
                                      background_label=conf["background_label"])
         loss = fluid.layers.mean(loss)
-        return loss
-    elif mode == "Eval1":
-        nms_out = get_od_out()[-1]
         map_eval = fluid.metrics.DetectionMAP(nms_out,
                                               label_list,
                                               box_list,
@@ -74,7 +71,7 @@ def build_net(ipt,
                                               overlap_threshold=conf["overlap_threshold"],
                                               ap_version=conf["ap_version"])
 
-        return map_eval
+        return loss, map_eval
     elif mode == "TandV2":
         classify_all_out = net_obj.req_classify_net()
         return classify_all_out

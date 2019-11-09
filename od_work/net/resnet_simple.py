@@ -4,6 +4,8 @@
 # Please indicate the source for reprinting.
 
 import paddle.fluid as fluid
+from paddle.fluid.initializer import MSRA
+from paddle.fluid.param_attr import ParamAttr
 
 
 def base_layer(ipt,
@@ -27,7 +29,7 @@ def base_layer(ipt,
     :param depthwise_sc: 是否深度可分离卷积，若为是则忽略卷积核数量这个参数
     :return: 处理后张量
     """
-
+    parameter_attr = ParamAttr(learning_rate=0.01, initializer=MSRA())
     stride = filter_size - 1 if size_cut else 1
     padding = (filter_size - 1) // 2 if same_padding else 0
     tmp = fluid.layers.conv2d(
@@ -37,7 +39,8 @@ def base_layer(ipt,
         stride=stride,
         padding=padding,
         bias_attr=False,
-        name="base_conv_" + name)
+        name="base_conv_" + name,
+        param_attr=parameter_attr)
     if depthwise_sc:
         tmp = fluid.layers.conv2d(
             input=tmp,
@@ -46,7 +49,8 @@ def base_layer(ipt,
             stride=1,
             padding=0,
             bias_attr=False,
-            name="base_conv_dpsc_" + name)
+            name="base_conv_dpsc_" + name,
+            param_attr=parameter_attr)
 
     tmp = fluid.layers.batch_norm(
         input=tmp,
@@ -157,15 +161,16 @@ class SimpleResNet:
 
         out_list_detection = []
         for group_num in range(self.ipt_size_level):
+            filters_num = 2 ** (group_num // 2 + 5) if group_num <= 10 else 1024
             tmp = res_block(tmp,
                             name=str(group_num),
-                            num_filters=2 ** (group_num // 2 + 5),
+                            num_filters=filters_num,
                             deep_level=self.deep_level)
 
             if group_num % 2 == 1:
                 tmp = base_layer(ipt=tmp,
                                  name="res_block_conv_" + str(group_num) + "_cut",
-                                 filter_num=2 ** (group_num // 2 + 6),
+                                 filter_num=2 * filters_num,
                                  filter_size=3,
                                  size_cut=True,
                                  act="relu",
@@ -175,7 +180,7 @@ class SimpleResNet:
                 else:
                     classify_layer1 = base_layer(ipt=tmp,
                                                  name="classify_layer_conv",
-                                                 filter_num=2 ** (group_num // 2 + 6),
+                                                 filter_num=2 * filters_num,
                                                  filter_size=self.classify_level,
                                                  size_cut=True,
                                                  act='relu',

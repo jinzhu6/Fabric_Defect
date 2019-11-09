@@ -108,13 +108,12 @@ with fluid.program_guard(train_prog, start_prog):
     ipt_img = fluid.data(name="ipt_img", shape=[-1, 3] + conf["ipt_img_size"], dtype="float32")
     ipt_boxs = fluid.data(name="ipt_box_list", shape=[-1, 4], dtype="float32", lod_level=1)
     ipt_label = fluid.data(name="ipt_label", shape=[-1, 1], dtype="int32", lod_level=1)
+    loss, map_eval = build_net(ipt_img, ipt_boxs, ipt_label, mode="Train1")
     eval_prog = train_prog.clone(for_test=True)
-    loss = build_net(ipt_img, ipt_boxs, ipt_label, mode="Train1")
     opt = fluid.optimizer.Adam(learning_rate=conf["e_learning_rate"])
     opt.minimize(loss)
 
 with fluid.program_guard(eval_prog, start_prog):
-    map_eval = build_net(ipt_img, ipt_boxs, ipt_label, mode="Eval1")
     cur_map, accum_map = map_eval.get_map_var()
 
 # 读取设置
