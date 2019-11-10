@@ -14,7 +14,7 @@ from tools import label_tool as labelTool
 from build_net import build_net
 
 # 读取配置文件
-with open("./config/train_full.yaml", "r", encoding="utf-8") as f:
+with open("./config/train_classsify.yaml", "r", encoding="utf-8") as f:
     conf = f.read()
     conf = dict(yaml.load(conf, Loader=yaml.FullLoader))
 
@@ -22,15 +22,11 @@ dir_path = conf["data_path"] + "/"
 train_dir_path = dir_path + "train"
 eval_dir_path = dir_path + "eval"
 epoch_data_count = 50  # 默认每Epoch有多少图片数量
-
 # 数据读取
-
-# 标签类数据读取
-train_label_dict = labelTool.read_label(train_dir_path + "/label")
-eval_label_dict = labelTool.read_label(eval_dir_path + "/label")
+train_label_dict = labelTool.read_label(train_dir_path)
+eval_label_dict = labelTool.read_label(eval_dir_path)
 
 
-# Reader
 def reader(mode: str = "Train"):
     """
     数据读取器
@@ -51,14 +47,7 @@ def reader(mode: str = "Train"):
         for index in range(len(img_pretreatment_tool)):
             now_img_name = img_pretreatment_tool.img_files_name[index]
             img_pretreatment_tool.img_init(index, label_location_info=label_dict[now_img_name])
-            img_pretreatment_tool.img_only_one_shape(2400, 1200)
-            img_pretreatment_tool.img_resize(600, 300)
-            img_pretreatment_tool.img_random_crop(300, 300)
-            img_pretreatment_tool.img_random_brightness()
-            img_pretreatment_tool.img_random_contrast()
-            img_pretreatment_tool.img_random_saturation()
-            img_pretreatment_tool.img_rotate()
-            img_pretreatment_tool.img_cut_color()
+            img_pretreatment_tool.img_only_one_shape(300, 300)
             img_list, label_list = img_pretreatment_tool.req_result()
             global epoch_data_count
             if epoch_data_count == 50:
@@ -80,27 +69,26 @@ start_prog = fluid.Program()
 train_prog = fluid.Program()
 
 with fluid.program_guard(train_prog, start_prog):
-    ipt_img = fluid.data(name="ipt_img", shape=[-1, 1] + conf["ipt_img_size"], dtype="float32")
-    ipt_boxs = fluid.data(name="ipt_box_list", shape=[-1, 4], dtype="float32", lod_level=1)
+    ipt_img = fluid.data(name="ipt_img", shape=[-1, 3] + conf["ipt_img_size"], dtype="float32")
     ipt_label = fluid.data(name="ipt_label", shape=[-1, 1], dtype="int32", lod_level=1)
-    # loss, map_eval = build_net(ipt_img, ipt_boxs, ipt_label, mode="TandV1")
-    loss = build_net(ipt_img, ipt_boxs, ipt_label, mode="TandV1")
+    layers = build_net(ipt_img, mode="TandV2")
     eval_prog = train_prog.clone(for_test=True)
+    loss = fluid.layers.cross_entropy(layers[-1], ipt_label)
     learning_rate = fluid.layers.exponential_decay(learning_rate=conf["e_learning_rate"],
                                                    decay_steps=epoch_data_count // conf["batch_size"],
                                                    decay_rate=0.5,
                                                    staircase=True)
     opt = fluid.optimizer.Adam(learning_rate=learning_rate)
-    opt.minimize(loss)
+    opt.minimize(loss, parameter_list=layers)
 
-# with fluid.program_guard(eval_prog, start_prog):
-#     cur_map, accum_map = map_eval.get_map_var()
+with fluid.program_guard(eval_prog, start_prog):
+    acc = fluid.layers.accuracy(layers[-1], ipt_label)
 
 # 读取设置
 
 train_reader = paddle.batch(reader=paddle.reader.shuffle(reader(), 500), batch_size=conf["batch_size"])
 eval_reader = paddle.batch(reader=paddle.reader.shuffle(reader(mode="TandV1"), 500), batch_size=conf["batch_size"])
-feeder = fluid.DataFeeder(place=place, feed_list=[ipt_img, ipt_boxs, ipt_label])
+feeder = fluid.DataFeeder(place=place, feed_list=[ipt_img, ipt_label])
 
 # 训练部分
 exe.run(start_prog)
@@ -119,14 +107,9 @@ for epoch in range(conf["epochs"]):
         if data_id == 0:
             cost_time = time.time() - start_time
             print("one data training avg time is:", cost_time / conf["batch_size"])
-    print("Epoch:", epoch + 1, "loss:", train_out[0])
-    fluid.io.save_persistables(executor=exe,
-                               dirname=conf['save_model_path'] + "/train_od_" + str(epoch),
-                               main_program=train_prog)
-    # for data_id, data in enumerate(eval_reader()):
-    #     eval_out = exe.run(program=eval_prog,
-    #                        feed=feeder.feed(data),
-    #                        fetch_list=[cur_map, accum_map])
-    #
-    # map_eval.reset(exe)
-    # print("Epoch:", epoch + 1, "loss:", train_out[0], "cur_map:", eval_out[0], "accum_map:", eval_out[1])
+    for data_id, data in enumerate(eval_reader()):
+        eval_out = exe.run(program=eval_prog,
+                           feed=feeder.feed(data),
+                           fetch_list=[acc])
+
+    print("Epoch:", epoch + 1, "loss:", train_out[0], "acc:", eval_out[0])

@@ -11,7 +11,7 @@ import traceback
 from PIL import Image, ImageEnhance
 import numpy as np
 
-from tools.osTool import read_ext_in_dir
+from tools.os_tool import read_ext_in_dir
 
 fontP = "./font/1.ttf"
 
@@ -41,7 +41,7 @@ class ImgPretreatment:
         img_pretreatment_tool=ImgPretreatment(args)
         # 处理所有图像
         for index in range(img_pretreatment_tool.__len__())
-            # 可以获取当前初始化的文件名 防止与将要操作的图片不一致
+            # 可以获取当前初始化的文件名(不含扩展名) 防止与将要操作的图片不一致
             now_img_name = self.img_files_name[index]
             loc = xxx
             # 初始化当前index图像
@@ -143,6 +143,8 @@ class ImgPretreatment:
         self.now_img_file_path = None
         self.now_img_obj_list = []
         self.now_label_locs_list = []
+        self.tmp_one_img_to_num = 0
+        self.tmp_all_img_to_num = 0
         if debug:
             print("Data read successfully number:", self.len_img)
 
@@ -222,7 +224,6 @@ class ImgPretreatment:
         注意！期望大小必须小于原始图片大小
         """
         temp_img_list = []
-        temp_locs_list = []
         for index, now_img_obj in enumerate(self.now_img_obj_list):
             w, h = now_img_obj.size
             assert (w - expect_w >= 0 or h - expect_h >= 0), (
@@ -233,9 +234,9 @@ class ImgPretreatment:
             img = now_img_obj.crop(box)
             temp_img_list.append(img)
             if self.__contain_location:
-                self.__repair_loc(index, box, temp_locs_list)
+                self.__repair_loc(index, box)
+
         self.now_img_obj_list = temp_img_list
-        self.now_label_locs_list = temp_locs_list
         self.shape = temp_img_list[0].size
 
     def img_resize(self, expect_w, expect_h):
@@ -250,7 +251,7 @@ class ImgPretreatment:
                 w, h = now_img_obj.size
                 w_, h_ = (expect_w / w, expect_h / h)
                 for loc_id, loc in enumerate(self.now_label_locs_list[index]):
-                    tmp_loc = [loc[0] * w_, loc[1] * w_, loc[2] * h_, loc[3] * w_]
+                    tmp_loc = [loc[0], [loc[1][0] * w_, loc[1][1] * w_, loc[1][2] * h_, loc[1][3] * w_]]
                     self.now_label_locs_list[index][loc_id] = tmp_loc
             img = now_img_obj.resize((expect_w, expect_h), Image.LANCZOS)
             temp_list.append(img)
@@ -258,7 +259,7 @@ class ImgPretreatment:
         self.now_img_obj_list = temp_list
         self.shape = temp_list[0].size
 
-    def img_rotate(self, angle_range=(0, 0), angle_step=1, angle_and_transpose=False, only_transpose=False):
+    def img_rotate(self, angle_range=(0, 0), angle_step=1, angle_and_transpose=False, only_transpose=True):
         """
         图像翻转
         如果仅返回规则翻转，则不需要修改前两个参数
@@ -285,10 +286,10 @@ class ImgPretreatment:
                     tmp_loc1.append(loc)
                 tmp_loc2 = []
                 for loc in self.now_label_locs_list[index]:
-                    tmp_loc2.append([w - loc[0], loc[1], w - loc[2], loc[3]])
+                    tmp_loc2.append([loc[0], [w - loc[1][0], loc[1][1], w - loc[1][2], loc[1][3]]])
                 tmp_loc3 = []
                 for loc in self.now_label_locs_list[index]:
-                    tmp_loc3.append([loc[0], h - loc[1], loc[2], h - loc[3]])
+                    tmp_loc3.append([loc[0], [loc[1][0], h - loc[1][1], loc[1][2], h - loc[1][3]]])
                 tmp_locs.append(tmp_loc1)
                 tmp_locs.append(tmp_loc2)
                 tmp_locs.append(tmp_loc3)
@@ -317,19 +318,16 @@ class ImgPretreatment:
         :param random_num:
         """
         temp_img_list = []
-        temp_locs_list = []
         for seed in range(1, random_num + 1):
             for index, now_img in enumerate(self.now_img_obj_list):
                 w, h = now_img.size
                 seed_w = random.randint(0, (w - expect_w))
                 seed_h = random.randint(0, (h - expect_h))
                 box = (seed_w, seed_h, seed_w + expect_w, seed_h + expect_h)
-                temp_img_list.append(now_img.crop(box))
                 if self.__contain_location:
-                    if self.__contain_location:
-                        self.__repair_loc(index, box, temp_locs_list)
+                    self.__repair_loc(index, box)
+                temp_img_list.append(now_img.crop(box))
         self.now_img_obj_list = temp_img_list
-        self.now_label_locs_list = temp_locs_list
         self.shape = temp_img_list[0].size
 
     def img_random_contrast(self, random_num: int = 1, lower=0.5, upper=1.5):
@@ -415,9 +413,12 @@ class ImgPretreatment:
         # 输出区域
 
         if self.debug and self.__first_print_flag:
-            print("The current size of the first image output is ", self.shape)
-            print("The number of single image pre-processed is expected to be ", len(self.now_img_obj_list))
-            print("The total number of pictures expected to be produced is ", self.len_img * len(self.now_img_obj_list))
+            tmp_shape = self.shape
+            self.tmp_one_img_to_num = len(self.now_img_obj_list)
+            self.tmp_all_img_to_num = self.len_img * len(self.now_img_obj_list)
+            print("The current size of the first image output is ", tmp_shape)
+            print("The number of single image pre-processed is expected to be ", self.tmp_one_img_to_num)
+            print("The total number of pictures expected to be produced is ", self.tmp_all_img_to_num)
             self.__first_print_flag = False
         if self.debug:
             self.__progress_print()
@@ -441,26 +442,35 @@ class ImgPretreatment:
         else:
             return self.now_img_obj_list
 
+    def req_img_count(self):
+        """
+        获取当前处理文件夹下处理后图像总数
+        返回单张图片处理后的数量，文件夹下预计处理完后的数量
+        :return: tmp_one_img_to_num, tmp_all_img_to_num
+        """
+        return self.tmp_one_img_to_num, self.tmp_all_img_to_num
+
     def _req_color_mean(self):
         if self._color_mean_flag:
             return self.__color_mean
         else:
             return self.__color_mean_start()
 
-    def __repair_loc(self, index, box, locs_list):
+    def __repair_loc(self, index, box):
         """
         修正标签坐标，用于裁剪后坐标偏移修正。传入在原图基础上裁剪的范围框--box和当前坐标列表即可
         :param index: 当前处理列表的索引值
         :param box: 裁剪框
-        :param locs_list: 存储修正后坐标的列表
         """
-        if self.__contain_location:
-            temp_loc_list = []
-            for loc_id, loc in enumerate(self.now_label_locs_list[index]):
-                final_loc = [loc[1][0] - box[0], loc[1][1] - box[1], loc[1][2] - box[0], loc[1][3] - box[1]]
-                if min(final_loc) >= 0:
-                    temp_loc_list.append(final_loc)
-            locs_list.append(temp_loc_list)
+
+        temp_loc_list = []
+        for loc_id, loc in enumerate(self.now_label_locs_list[index]):
+            final_loc = [loc[1][0] - box[0], loc[1][1] - box[1], loc[1][2] - box[0], loc[1][3] - box[1]]
+            if min(final_loc) >= 0:
+                temp_loc_list.append([loc[0], final_loc])
+            else:
+                temp_loc_list.append([0, [0, 0, 0, 0]])
+        self.now_label_locs_list[index] = temp_loc_list
 
     def __progress_print(self):
         """

@@ -4,7 +4,7 @@
 # Please indicate the source for reprinting.
 
 import json
-from tools import osTool as osTool
+from tools import os_tool as osTool
 
 label_key = {"油污/浆斑-类": 1,
              "停车痕-类": 2,
@@ -33,7 +33,7 @@ def read_label(path):
     """
     读取标签信息
     :param path: 带有labelme标注的json文件的目录
-    :return: 标签字典 {文件名:[[label,box],...]}
+    :return: 标签字典 {文件名(不含扩展名):[[label,box],...]}
     """
     json_names, json_file_paths = osTool.read_ext_in_dir(path, ext="json", name_none_ext=True)
     tmp = {}

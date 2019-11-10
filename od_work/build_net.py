@@ -2,9 +2,11 @@
 # Datetime:2019/10/27
 # Copyright belongs to the author.
 # Please indicate the source for reprinting.
-from net.resnet_simple import SimpleResNet
-import paddle.fluid as fluid
+
 import yaml
+import numpy as np
+import paddle.fluid as fluid
+from net.resnet_simple import SimpleResNet
 
 with open("./config/net.yaml", "r", encoding="utf-8") as f:
     conf = f.read()
@@ -64,17 +66,18 @@ def build_net(ipt,
                                      prior_box_var=bvars,
                                      background_label=conf["background_label"])
         loss = fluid.layers.mean(loss)
-        map_eval = fluid.metrics.DetectionMAP(nms_out,
-                                              label_list,
-                                              box_list,
-                                              class_num=conf["classify_num"],
-                                              overlap_threshold=conf["overlap_threshold"],
-                                              ap_version=conf["ap_version"])
 
-        return loss, map_eval
+        # map_eval = fluid.metrics.DetectionMAP(nms_out,
+        #                                       label_list,
+        #                                       box_list,
+        #                                       class_num=conf["classify_num"],
+        #                                       overlap_threshold=conf["overlap_threshold"],
+        #                                       ap_version=conf["ap_version"])
+        # return loss, map_eval
+        return loss
     elif mode == "TandV2":
         classify_all_out = net_obj.req_classify_net()
         return classify_all_out
     else:
-        print("模式选择有误,请修改build_net中mode参数为‘Train_1、Eval1、TandV2、Infer’中其一")
+        print("模式选择有误,请修改build_net中mode参数为‘TandV1、TandV2、Infer’中其一")
         exit(1)

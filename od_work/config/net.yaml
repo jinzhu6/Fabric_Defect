@@ -3,7 +3,7 @@
 ###                                   ###
 
 # 基础配置
-classify_num: 3     # 分类数
+classify_num: 5     # 分类数
 base_size: 300      # Reader返回的图像尺寸
 
 # 性能配置 - 目标检测

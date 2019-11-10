@@ -115,7 +115,7 @@ class SimpleResNet:
 
     def req_classify_net(self):
         """
-        获取分类网络，以及网络中需要梯度更新的层
+        获取分类网络，以及网络中需要梯度更新的层，其中列表最后一个元素为输出层
         :return: list[layers]
         """
         return self.out_list_classify
