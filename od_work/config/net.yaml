@@ -4,7 +4,7 @@
 
 # 基础配置
 classify_num: 5     # 分类数
-base_size: 512      # Reader返回的图像尺寸
+base_size: 1200     # Reader返回的图像尺寸
 
 # 性能配置 - 目标检测
 min_ratio: 3        # 先验框的长度和 base_size 的最小比率

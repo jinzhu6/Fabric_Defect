@@ -251,7 +251,7 @@ class ImgPretreatment:
                 w, h = now_img_obj.size
                 w_, h_ = (expect_w / w, expect_h / h)
                 for loc_id, loc in enumerate(self.now_label_locs_list[index]):
-                    tmp_loc = [loc[0], [loc[1][0] * w_, loc[1][1] * w_, loc[1][2] * h_, loc[1][3] * w_]]
+                    tmp_loc = [loc[0], [loc[1][0] * w_, loc[1][1] * h_, loc[1][2] * w_, loc[1][3] * w_]]
                     self.now_label_locs_list[index][loc_id] = tmp_loc
             img = now_img_obj.resize((expect_w, expect_h), Image.LANCZOS)
             temp_list.append(img)

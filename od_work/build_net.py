@@ -73,7 +73,7 @@ def build_net(ipt,
                                               class_num=conf["classify_num"],
                                               overlap_threshold=conf["overlap_threshold"],
                                               ap_version=conf["ap_version"])
-        return loss, map_eval
+        return loss, map_eval, nms_out
 
     elif mode == "TandV2":
         classify_all_out = net_obj.req_classify_net()
