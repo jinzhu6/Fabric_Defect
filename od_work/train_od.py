@@ -10,8 +10,8 @@ import paddle
 import numpy as np
 import PIL.Image as Image
 
-from tools import img_tool as imgTool
-from tools import label_tool as labelTool
+from tools import img_tool as img_tool
+from tools import label_tool as label_tool
 from tools import os_tool as os_tool
 from build_net import build_net
 
@@ -28,8 +28,8 @@ epoch_data_count = 50  # 默认每Epoch有多少图片数量
 # 数据读取
 
 # 标签类数据读取
-train_label_dict = labelTool.read_label(train_dir_path + "/label")
-eval_label_dict = labelTool.read_label(eval_dir_path + "/label")
+train_label_dict = label_tool.read_label(train_dir_path + "/label")
+eval_label_dict = label_tool.read_label(eval_dir_path + "/label")
 
 
 # Reader
@@ -49,39 +49,39 @@ def reader(mode: str = "Train"):
             path = eval_dir_path
             label_dict = eval_label_dict
             for_test = True
-        img_name_list, img_name_path = os_tool.read_ext_in_dir(path, name_none_ext=True)
-        for img_name, img_path in zip(img_name_list, img_name_path):
-            im = Image.open(img_path)
-            label_infos = label_dict[img_name]
-            w, h = im.size
-            im = im.resize((1200, 1200), Image.LANCZOS)
-            im = np.array(im).reshape(1, 1, 1200, 1200)
-            label = np.array([i[0] for i in label_infos])
-            box = np.array([[i[1][0] / w / 2, i[1][1] / h, i[1][2] / w / 2, i[1][3] / h] for i in label_infos])
-            yield im, box, label
-
-        # img_pretreatment_tool = imgTool.ImgPretreatment(path, for_test=for_test)
-        # for index in range(len(img_pretreatment_tool)):
-        #     now_img_name = img_pretreatment_tool.img_files_name[index]
-        #     img_pretreatment_tool.img_init(index, label_location_info=label_dict[now_img_name])
-        #     img_pretreatment_tool.img_only_one_shape(2400, 1200)
-        #     img_pretreatment_tool.img_resize(1200, 1200)
-        #     img_pretreatment_tool.img_random_crop(512, 512)
-        #     img_pretreatment_tool.img_random_brightness()
-        #     img_pretreatment_tool.img_random_contrast()
-        #     img_pretreatment_tool.img_random_saturation()
-        #     img_pretreatment_tool.img_rotate()
-        #     img_pretreatment_tool.img_cut_color()
-        #     img_list, label_list = img_pretreatment_tool.req_result()
-        #     global epoch_data_count
-        #     if epoch_data_count == 50:
-        #         epoch_data_count = img_pretreatment_tool.req_img_count()
-        # for im, label_infos in zip(img_list, label_list):
+        # img_name_list, img_name_path = os_tool.read_ext_in_dir(path, name_none_ext=True)
+        # for img_name, img_path in zip(img_name_list, img_name_path):
+        #     im = Image.open(img_path)
+        #     label_infos = label_dict[img_name]
         #     w, h = im.size
-        #     im = np.array(im).reshape(1, 1, h, w)
+        #     im = im.resize((1200, 1200), Image.LANCZOS)
+        #     im = np.array(im).reshape(1, 1, 1200, 1200)
         #     label = np.array([i[0] for i in label_infos])
-        #     box = np.array([[i[1][0] / w, i[1][1] / h, i[1][2] / w, i[1][3] / h] for i in label_infos])
+        #     box = np.array([[i[1][0] / w / 2, i[1][1] / h, i[1][2] / w / 2, i[1][3] / h] for i in label_infos])
         #     yield im, box, label
+
+        img_pretreatment_tool = img_tool.ImgPretreatment(path, for_test=for_test)
+        for index in range(len(img_pretreatment_tool)):
+            now_img_name = img_pretreatment_tool.img_files_name[index]
+            img_pretreatment_tool.img_init(index, label_location_info=label_dict[now_img_name])
+            img_pretreatment_tool.img_only_one_shape(2400, 1200)
+            img_pretreatment_tool.img_resize(1200, 1200)
+            # img_pretreatment_tool.img_random_crop(512, 512)
+            # img_pretreatment_tool.img_random_brightness()
+            # img_pretreatment_tool.img_random_contrast()
+            # img_pretreatment_tool.img_random_saturation()
+            # img_pretreatment_tool.img_rotate()
+            # img_pretreatment_tool.img_cut_color()
+            img_list, label_list = img_pretreatment_tool.req_result()
+            global epoch_data_count
+            if epoch_data_count == 50:
+                epoch_data_count = img_pretreatment_tool.req_img_count()
+        for im, label_infos in zip(img_list, label_list):
+            w, h = im.size
+            im = np.array(im).reshape(1, 1, h, w)
+            label = np.array([i[0] for i in label_infos])
+            box = np.array([[i[1][0] / w, i[1][1] / h, i[1][2] / w, i[1][3] / h] for i in label_infos])
+            yield im, box, label
 
     return yield_one_data
 
