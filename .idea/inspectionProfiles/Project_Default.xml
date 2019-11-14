@@ -15,6 +15,7 @@
       <option name="ignoredIdentifiers">
         <list>
           <option value="deep_level" />
+          <option value="label_list" />
         </list>
       </option>
     </inspection_tool>
