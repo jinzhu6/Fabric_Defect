@@ -103,7 +103,7 @@ class SimpleResNet:
 
         self.conv_level = conv_level
         if self.conv_level is None:
-            self.conv_level = [2] * 4
+            self.conv_level = [2] + [1]
         self.ipt = ipt
         self.classify_num = classify_num
         self.classify_level = classify_level
@@ -116,33 +116,44 @@ class SimpleResNet:
                                   filter_size=1,
                                   depthwise_sc=False,
                                   act="softmax")
-                       for cut_id, tmp in self.layers_list]
+                       for cut_id, tmp in enumerate(self.layers_list)]
         return layers_list
 
     def _build_net(self):
         tmp = base_layer(
             ipt=self.ipt,
             name="ipt_conv",
-            filter_num=32,
+            filter_num=16,
             filter_size=3,
             act='relu',
             depthwise_sc=False)
-        now_filter_num = 64
+        # tmp = base_layer(
+        #     ipt=tmp,
+        #     name="ipt_conv",
+        #     filter_num=32,
+        #     filter_size=3,
+        #     act='relu',
+        #     depthwise_sc=False)
+        now_filter_num = 16
         layers_list = []
-        for cut_id in self.conv_level:
-            for id_, layer_num in enumerate(range(cut_id)):
+        for cut_id, cut_level in enumerate(self.conv_level):
+            for id_, layer_num in enumerate(range(cut_level)):
                 tmp = res_block(ipt=tmp,
                                 name=str(cut_id) + "_" + str(layer_num) + "_",
                                 num_filters=now_filter_num)
-                if id_ == cut_id - 1:
-                    tmp = base_layer(ipt=tmp,
-                                     name="cut_" + str(cut_id),
-                                     filter_num=now_filter_num,
-                                     filter_size=3,
-                                     size_cut=True,
-                                     depthwise_sc=False,
-                                     act="relu")
-                    layers_list.append(tmp)
-                if now_filter_num < 512:
-                    now_filter_num *= 2
+            if now_filter_num < 256:
+                now_filter_num *= 2
+            tmp = base_layer(ipt=tmp,
+                             name="cut_" + str(cut_id),
+                             filter_num=now_filter_num,
+                             filter_size=3,
+                             size_cut=True,
+                             depthwise_sc=False,
+                             act="relu")
+            layers_list.append(tmp)
+
         self.layers_list = layers_list
+
+# # Debug
+# data = fluid.layers.data(name="debug", shape=[1, 2400, 1200])
+# net = SimpleResNet(data)

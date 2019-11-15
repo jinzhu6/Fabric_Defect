@@ -200,7 +200,7 @@ class SimpleResNet:
 
 # Debug
 
-# data = fluid.layers.data(name="debug", shape=[3, 1080, 608])
+# data = fluid.layers.data(name="debug", shape=[1, 2400, 1200])
 # net_obj = SimpleResNet(data, deep_level=2, ipt_size_level=8)
 # print("layer_count", net_obj.req_layer_count())
 # print("detection_layer_size", net_obj.req_detection_layer_size())

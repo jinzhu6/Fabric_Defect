@@ -1,6 +1,6 @@
 # 训练参数
 use_cuda: false      # 是否使用GPU
-batch_size: 4       # 小批次数据量
+batch_size: 2       # 小批次数据量
 epochs: 1000         # 最大训练循环
 stop_iou: 0.9       # 当iou达到该值时停止训练
 data_path: "./data" # 数据存放目录 该目录下应有train和eval子目录
